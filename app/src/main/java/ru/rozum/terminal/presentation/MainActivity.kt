@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
                 
                 when(val currentState = screenState.value) {
                     is TerminalScreenState.Content -> {
-                        println(currentState.barList)
+                        Terminal(bars = currentState.barList)
                     }
                     TerminalScreenState.Initial -> {}
                 }
