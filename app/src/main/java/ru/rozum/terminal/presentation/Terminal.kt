@@ -7,13 +7,14 @@ import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.drawscope.translate
 import ru.rozum.terminal.data.Bar
 import kotlin.math.roundToInt
 
@@ -26,13 +27,28 @@ fun Terminal(bars: List<Bar>) {
         mutableIntStateOf(100)
     }
 
-    val transformableState = TransformableState { zoomChange, _, _ ->
+    var scrolledBy by remember {
+        mutableFloatStateOf(0f)
+    }
+
+    var barWidth by remember {
+        mutableFloatStateOf(0f)
+    }
+
+    var terminalWidth by remember {
+        mutableFloatStateOf(0f)
+    }
+
+    val transformableState = TransformableState { zoomChange, panChange, _ ->
 
         visibleBarsCount = (visibleBarsCount / zoomChange).roundToInt().coerceIn(
             MIN_VISIBLE_BARS_COUNT, bars.size
         )
-        println("zoomChange: $zoomChange")
-        println("visibleBarsCount: $visibleBarsCount")
+
+        scrolledBy = (scrolledBy + panChange.x).coerceIn(
+            0f, bars.size * barWidth - terminalWidth
+        )
+
     }
 
     Canvas(
@@ -41,18 +57,27 @@ fun Terminal(bars: List<Bar>) {
             .background(Color.Black)
             .transformable(transformableState)
     ) {
+        terminalWidth = size.width
         val maxPrice = bars.maxOf { it.high }
         val minPrice = bars.minOf { it.low }
-        val barWidth = size.width / visibleBarsCount
+        barWidth = size.width / visibleBarsCount
         val pxPerPoint = size.height / (maxPrice - minPrice)
-        bars.take(visibleBarsCount).forEachIndexed { index, bar ->
-            val offsetX = size.width - (barWidth * index)
-            drawLine(
-                color = Color.White,
-                start = Offset(offsetX, size.height - ((bar.low - minPrice) * pxPerPoint)),
-                end = Offset(offsetX, size.height - ((bar.high - minPrice) * pxPerPoint)),
-                strokeWidth = 1.dp.toPx()
-            )
+        translate(left = scrolledBy) {
+            bars.forEachIndexed { index, bar ->
+                val offsetX = size.width - (barWidth * index)
+                drawLine(
+                    color = Color.White,
+                    start = Offset(offsetX, size.height - ((bar.low - minPrice) * pxPerPoint)),
+                    end = Offset(offsetX, size.height - ((bar.high - minPrice) * pxPerPoint)),
+                )
+
+                drawLine(
+                    color = if (bar.open < bar.close) Color.Green else Color.Red,
+                    start = Offset(offsetX, size.height - ((bar.open - minPrice) * pxPerPoint)),
+                    end = Offset(offsetX, size.height - ((bar.close - minPrice) * pxPerPoint)),
+                    strokeWidth = barWidth / 2
+                )
+            }
         }
     }
 }
