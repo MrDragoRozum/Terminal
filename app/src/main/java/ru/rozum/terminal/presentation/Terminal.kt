@@ -6,6 +6,7 @@ import androidx.compose.foundation.gestures.TransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -31,12 +32,22 @@ fun Terminal(bars: List<Bar>) {
         mutableFloatStateOf(0f)
     }
 
-    var barWidth by remember {
+    var terminalWidth by remember {
         mutableFloatStateOf(0f)
     }
 
-    var terminalWidth by remember {
-        mutableFloatStateOf(0f)
+    val barWidth by remember {
+        derivedStateOf {
+            terminalWidth / visibleBarsCount
+        }
+    }
+
+    val visibleBars by remember {
+        derivedStateOf {
+            val startIndex = (scrolledBy / barWidth).roundToInt().coerceAtLeast(0)
+            val endIndex = (startIndex + visibleBarsCount).coerceAtMost(bars.size)
+            bars.subList(startIndex, endIndex)
+        }
     }
 
     val transformableState = TransformableState { zoomChange, panChange, _ ->
@@ -44,6 +55,7 @@ fun Terminal(bars: List<Bar>) {
         visibleBarsCount = (visibleBarsCount / zoomChange).roundToInt().coerceIn(
             MIN_VISIBLE_BARS_COUNT, bars.size
         )
+
 
         scrolledBy = (scrolledBy + panChange.x).coerceIn(
             0f, bars.size * barWidth - terminalWidth
@@ -58,9 +70,8 @@ fun Terminal(bars: List<Bar>) {
             .transformable(transformableState)
     ) {
         terminalWidth = size.width
-        val maxPrice = bars.maxOf { it.high }
-        val minPrice = bars.minOf { it.low }
-        barWidth = size.width / visibleBarsCount
+        val maxPrice = visibleBars.maxOf { it.high }
+        val minPrice = visibleBars.minOf { it.low }
         val pxPerPoint = size.height / (maxPrice - minPrice)
         translate(left = scrolledBy) {
             bars.forEachIndexed { index, bar ->
