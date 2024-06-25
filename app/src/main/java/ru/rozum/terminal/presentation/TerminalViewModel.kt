@@ -1,6 +1,5 @@
 package ru.rozum.terminal.presentation
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -9,24 +8,28 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import ru.rozum.terminal.data.ApiFactory
 
-class TerminalViewModel: ViewModel() {
+class TerminalViewModel : ViewModel() {
     private val apiService = ApiFactory.apiService
 
     private val _state = MutableStateFlow<TerminalScreenState>(TerminalScreenState.Initial)
     val state = _state.asStateFlow()
 
-    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
-        Log.d("TerminalViewModel", "Что-то не так: $throwable")
+    private var lastState: TerminalScreenState = TerminalScreenState.Initial
+
+    private val exceptionHandler = CoroutineExceptionHandler { _, _ ->
+        _state.value = lastState
     }
 
     init {
         loadBarList()
     }
 
-    private fun loadBarList() {
+    fun loadBarList(timeFrame: TimeFrame = TimeFrame.HOUR_1) {
+        lastState = _state.value
+        _state.value = TerminalScreenState.Loading
         viewModelScope.launch(exceptionHandler) {
-            val barList = apiService.loadBars().barList
-            _state.value = TerminalScreenState.Content(barList = barList)
+            val barList = apiService.loadBars(timeFrame.value).barList
+            _state.value = TerminalScreenState.Content(barList = barList, timeFrame = timeFrame)
         }
     }
 }
